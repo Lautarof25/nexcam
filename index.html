@@ -4008,6 +4008,17 @@
         }
       }
 
+      @media(max-width:820px) {
+        .hero-photo-card:before {
+          animation: none
+        }
+
+        .field-photo {
+          transform: rotate(var(--photo-angle));
+          will-change: auto
+        }
+      }
+
       @media(prefers-reduced-motion:reduce) {
         .field-photo {
           transform: none !important;
@@ -5063,6 +5074,7 @@
       const fieldScene = document.querySelector('.field-scene');
       const fieldPhotos = [...document.querySelectorAll('.field-photo[data-depth]')];
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const parallaxEnabled = window.matchMedia('(min-width: 821px) and (prefers-reduced-motion: no-preference)');
       const fieldMonitor = document.querySelector('.field-monitor');
       const monitorTrack = fieldMonitor?.querySelector('.field-monitor-track');
       const monitorSlides = [...(fieldMonitor?.querySelectorAll('.field-monitor-slide') || [])];
@@ -5082,10 +5094,10 @@
         monitorDots.forEach(dot => dot.addEventListener('click', () => showMonitorSlide(Number(dot.dataset.monitorIndex))));
       }
       let scrollFrame = 0;
+      let maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
       const updateScrollProgress = () => {
-        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-        document.documentElement.style.setProperty('--scroll-progress', String(scrollable > 0 ? window.scrollY / scrollable : 0));
-        if (fieldScene && !reduceMotion.matches) {
+        document.documentElement.style.setProperty('--scroll-progress', String(maxScroll > 0 ? window.scrollY / maxScroll : 0));
+        if (fieldScene && parallaxEnabled.matches) {
           const scene = fieldScene.getBoundingClientRect();
           const progress = Math.max(-1, Math.min(1, (window.innerHeight / 2 - (scene.top + scene.height / 2)) / window.innerHeight));
           fieldPhotos.forEach(photo => photo.style.setProperty('--parallax-y', `${Math.round(progress * Number(photo.dataset.depth || 0))}px`));
@@ -5094,8 +5106,17 @@
       const scheduleScrollUpdate = () => {
         if (!scrollFrame) scrollFrame = window.requestAnimationFrame(() => { scrollFrame = 0; updateScrollProgress() });
       };
+      const refreshScrollMetrics = () => {
+        maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        scheduleScrollUpdate();
+      };
       window.addEventListener('scroll', scheduleScrollUpdate, { passive: true });
-      window.addEventListener('resize', scheduleScrollUpdate);
+      window.addEventListener('resize', refreshScrollMetrics);
+      document.fonts?.ready.then(refreshScrollMetrics);
+      if ('ResizeObserver' in window) {
+        const contentObserver = new ResizeObserver(refreshScrollMetrics);
+        contentObserver.observe(document.body);
+      }
       updateScrollProgress();
       const navLinks = [...document.querySelectorAll('#main-nav a[href^="#"]')];
       const navSections = navLinks.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
